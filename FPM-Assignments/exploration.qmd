@@ -1,0 +1,281 @@
+---
+title: "Exploratory Data Analysis of California Traffic Crash Data"
+author: "Emily Miller"
+date: "2026-02-04"
+format: pdf
+execute:
+  warning: false
+  message: false
+---
+
+## Setup
+```{r}
+library(tidyverse)
+library(patchwork)
+source(here::here("R", "data_cleaning.R"))
+crash_clean <- load_or_create_crash_clean()
+dir.create(here::here("figures"), showWarnings = FALSE)
+```
+
+## Data Wrangling
+```{r}
+# Data cleaning lives in R/data_cleaning.R and writes to data/processed
+dplyr::glimpse(crash_clean)
+```
+```{r}
+# Check how much data is lost by filtering to known sobriety codes
+crash_clean %>%
+  group_by(sobriety) %>%
+  summarize(crashes = n_distinct(collision_id)) %>%
+  mutate(prop = crashes / sum(crashes))
+```
+
+---
+
+## Temporal Patterns
+```{r}
+#| label: fig-hour-crashes
+#| fig-cap: "Crashes by hour"
+
+# Compare hourly patterns: both groups vs alcohol-only view
+hour_data <- crash_clean %>%
+  filter(!is.na(sobriety)) %>%
+  group_by(hour, sobriety) %>%
+  summarize(crashes = n_distinct(collision_id), .groups = "drop")
+
+print(hour_data, n = Inf)
+
+tod_both <- hour_data %>%
+  ggplot(aes(hour, crashes, color = sobriety)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = seq(0, 23, 3)) +
+  labs(x = "Hour of day", y = "Total crashes", color = "Sobriety")
+
+hour_alc_data <- crash_clean %>%
+  filter(sobriety == "Alcohol impaired") %>%
+  group_by(hour) %>%
+  summarize(crashes = n_distinct(collision_id), .groups = "drop")
+
+print(hour_alc_data, n = Inf)
+
+tod_alc <- hour_alc_data %>%
+  ggplot(aes(hour, crashes, color = "Alcohol Impaired")) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = seq(0, 23, 3)) +
+  labs(x = "Hour of day", y = "Total crashes")
+
+p_hour <- tod_both / tod_alc
+p_hour
+ggsave(here::here("figures", "fig-hour-crashes.png"), p_hour, width = 10, height = 8)
+```
+```{r}
+#| label: fig-month
+#| fig-cap: "Crashes by month"
+
+# Compare monthly patterns: both groups vs alcohol-only view
+month_data <- crash_clean %>%
+  filter(!is.na(sobriety)) %>%
+  group_by(month, sobriety) %>%
+  summarize(crashes = n_distinct(collision_id), .groups = "drop")
+
+print(month_data, n = Inf)
+
+mo_both <- month_data %>%
+  ggplot(aes(month, crashes, color = sobriety, group = sobriety)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Month", y = "Number of crashes", color = "Sobriety")
+
+month_alc_data <- crash_clean %>%
+  filter(sobriety == "Alcohol impaired") %>%
+  group_by(month) %>%
+  summarize(crashes = n_distinct(collision_id), .groups = "drop")
+
+print(month_alc_data, n = Inf)
+
+mo_alc <- month_alc_data %>%
+  ggplot(aes(month, crashes, group = 1, color = "Alcohol Impaired")) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Month", y = "Number of crashes")
+
+p_month <- mo_both / mo_alc
+p_month
+ggsave(here::here("figures", "fig-month.png"), p_month, width = 10, height = 8)
+```
+
+---
+
+## Speed Limit / Road Type
+```{r}
+#| label: fig-speed-compare
+#| fig-cap: "Crashes by speed limit"
+
+# Crash counts by speed limit bin for both sobriety groups
+speed_data <- crash_clean %>%
+  filter(!is.na(sobriety), !is.na(speed_bin)) %>%
+  group_by(speed_bin, sobriety) %>%
+  summarize(crashes = n_distinct(collision_id), .groups = "drop")
+
+print(speed_data, n = Inf)
+
+p_speed <- speed_data %>%
+  ggplot(aes(speed_bin, crashes, fill = sobriety)) +
+  geom_col(position = "dodge") +
+  labs(x = "Posted speed limit", y = "Number of crashes", fill = "Sobriety")
+
+p_speed
+ggsave(here::here("figures", "fig-speed-compare.png"), p_speed, width = 8, height = 5)
+```
+```{r}
+#| label: fig-speed-fatality
+#| fig-cap: "Fatality rate by speed limit"
+
+# Fatality rate by speed - shows severity rather than frequency
+speed_fatal_data <- crash_clean %>%
+  filter(!is.na(sobriety), !is.na(speed_bin)) %>%
+  distinct(collision_id, sobriety, speed_bin, fatal) %>%
+  group_by(speed_bin, sobriety) %>%
+  summarize(
+    crashes = n(),
+    fatality_rate = mean(fatal, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+print(speed_fatal_data, n = Inf)
+
+p_speed_fatal <- speed_fatal_data %>%
+  ggplot(aes(speed_bin, fatality_rate, fill = sobriety)) +
+  geom_col(position = "dodge") +
+  labs(x = "Posted speed limit", y = "Fatality rate", fill = "Sobriety")
+
+p_speed_fatal
+ggsave(here::here("figures", "fig-speed-fatality.png"), p_speed_fatal, width = 8, height = 5)
+```
+
+---
+
+## Demographics
+```{r}
+#| label: fig-age-compare
+#| fig-cap: "Crashes by age group"
+
+# Age distribution of at-fault drivers by sobriety
+age_data <- crash_clean %>%
+  filter(!is.na(sobriety), !is.na(age_group)) %>%
+  group_by(age_group, sobriety) %>%
+  summarize(crashes = n_distinct(collision_id), .groups = "drop")
+
+print(age_data, n = Inf)
+
+p_age <- age_data %>%
+  ggplot(aes(age_group, crashes, fill = sobriety)) +
+  geom_col(position = "dodge") +
+  labs(x = "Driver age group", y = "Number of crashes", fill = "Sobriety")
+
+p_age
+ggsave(here::here("figures", "fig-age-compare.png"), p_age, width = 8, height = 5)
+```
+```{r}
+#| label: fig-gender-compare
+#| fig-cap: "Crashes by gender"
+
+# Gender distribution - limited to M/F for cleaner comparison
+gender_data <- crash_clean %>%
+  filter(!is.na(sobriety), gender_code %in% c("F", "M")) %>%
+  group_by(gender_code, sobriety) %>%
+  summarize(crashes = n_distinct(collision_id), .groups = "drop")
+
+print(gender_data, n = Inf)
+
+p_gender <- gender_data %>%
+  ggplot(aes(gender_code, crashes, fill = sobriety)) +
+  geom_col(position = "dodge") +
+  labs(x = "Driver gender", y = "Number of crashes", fill = "Sobriety")
+
+p_gender
+ggsave(here::here("figures", "fig-gender-compare.png"), p_gender, width = 6, height = 5)
+```
+```{r}
+#| label: fig-age-gender
+#| fig-cap: "Crashes by age and gender"
+
+# Combined age and gender breakdown
+age_gender_data <- crash_clean %>%
+  filter(!is.na(sobriety), !is.na(age_group), gender_code %in% c("F", "M")) %>%
+  group_by(age_group, gender_code, sobriety) %>%
+  summarize(crashes = n_distinct(collision_id), .groups = "drop")
+
+print(age_gender_data, n = Inf)
+
+p_age_gender <- age_gender_data %>%
+  ggplot(aes(age_group, crashes, fill = sobriety)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~ gender_code) +
+  labs(x = "Driver age group", y = "Number of crashes", fill = "Sobriety")
+
+p_age_gender
+ggsave(here::here("figures", "fig-age-gender.png"), p_age_gender, width = 10, height = 5)
+```
+
+---
+
+## Overall Fatality Comparison
+```{r}
+#| label: fig-fatality-overall
+#| fig-cap: "Overall fatality rate by sobriety"
+
+# Core comparison: overall fatality rate by sobriety status
+fatality_data <- crash_clean %>%
+  filter(!is.na(sobriety)) %>%
+  distinct(collision_id, sobriety, fatal) %>%
+  group_by(sobriety) %>%
+  summarize(
+    crashes = n(),
+    fatality_rate = mean(fatal, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+print(fatality_data, n = Inf)
+
+p_fatality <- fatality_data %>%
+  ggplot(aes(sobriety, fatality_rate, fill = sobriety)) +
+  geom_col() +
+  labs(x = "Driver sobriety", y = "Fatality rate")
+
+p_fatality
+ggsave(here::here("figures", "fig-fatality-overall.png"), p_fatality, width = 6, height = 5)
+```
+
+---
+
+## Part V Responses
+
+**1. What have you learned about your data? Have any potentially interesting patterns emerged?**
+
+Sober crashes are most common during daytime hours while alcohol-impaired crashes concentrate at night, as shown in @fig-hour-crashes. The comparison panel reveals that when viewed in isolation, alcohol-impaired crashes appear confined to late-night hours. Sober crashes dominate overall volume. Seasonal patterns in @fig-month are similar for both groups, with slight summer peaks.
+
+Crashes for both groups occur on similar road types (@fig-speed-compare), with the number increasing with speed for both groups. The key difference emerges in @fig-speed-fatality: fatality rates peak around 50-60 mph for both groups, but alcohol-impaired crashes are consistently more fatal at every speed level.
+
+For demographics, @fig-age-compare shows older and middle-aged drivers dominate the sober group while those in their twenties and thirties are more prevalent in the alcohol-impaired group. @fig-gender-compare shows men account for roughly twice as many crashes as women in both groups. These patterns persist across the combined view in @fig-age-gender.
+
+Overall, @fig-fatality-overall confirms that alcohol-impaired crashes are less common but more severe, with roughly double the fatality rate of sober crashes.
+
+**2. Have you made any strides towards answering your original questions?**
+
+Yes. The exploration shows that alcohol-impaired crashes can appear much less dangerous only the number of crashes are compared next to those with sober drivers. Plots focusing only on alcohol-impaired crashes by time (@fig-hour-crashes bottom panel) or month (@fig-month bottom panel) suggest risk is confined to specific periods, which aligns with common but incomplete narratives ripe for manipulation.
+
+Adding comparison groups and shifting from counts to rates changes that picture. Many apparent patterns in time, speed, and demographics largely reflect overall driving behavior, while severity measures like @fig-speed-fatality and @fig-fatality-overall consistently show higher risk when alcohol is involved across all conditions.
+
+Next steps are to finalize which plot pairs best illustrate misleading versus honest framings, and experiment with axis truncation, selective time windows, and misleading annotations to see what kinds of plausible misinformation can emerge from these same data.
+
+**3. What challenges do you foresee?**
+
+The main challenge is making the misleading visualizations feel realistic rather than obviously flawed. Simple choices like using counts instead of rates are easy to spot, so the challenge is designing plots that look reasonable while still leading to incomplete conclusions. This requires careful choices about scale, aggregation, and framing.
+
+There are also data limitations. A large share of records have unknown sobriety status, which limits the view of the full picture, and there is no exposure data such as miles driven by sobriety group. This means the analysis can compare crashes and severity, but not true risk per mile driven.
+
+---
+
