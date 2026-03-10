@@ -2,15 +2,15 @@
 
 Data visualization final project for EDS 240 (Winter 2026).
 
-A deadpan parody PSA infographic examining three myths about drunk driving in California, using crash data from the CA Highway Patrol SWITRS database (2024).
+A deadpan parody PSA infographic examining three myths about drunk driving in California, using crash data from the CA Highway Patrol SWITRS database (2024). The infographic is assembled inside a car-interior illustration in Affinity Designer; the three data panels are generated in R.
 
 ---
 
 ## The Three Myths
 
-1. **Sober drivers cause more crashes** — the majority of at-fault crashes involve sober drivers
-2. **Drunk driving peaks at 2am** — sober crashes peak during rush hour; drunk crashes peak late night
-3. **Drunk driving is what's killing Californians** — sober men alone account for more estimated deaths than all drunk drivers combined
+1. **Sober drivers cause more crashes** — the majority of at-fault crashes involve sober drivers (counts, not rates)
+2. **Drunk driving peaks at 2am** — sober crashes peak during rush hour; drunk crashes peak late night; the mismatch implies alcohol isn't responsible for the most dangerous conditions
+3. **Drunk driving is what's killing Californians** — sober men alone account for more estimated deaths than all drunk drivers combined (absolute deaths, not fatality rate)
 
 ---
 
@@ -19,18 +19,34 @@ A deadpan parody PSA infographic examining three myths about drunk driving in Ca
 ```text
 FPM-Assignments/
   exploration.qmd       # data cleaning, joining, and EDA; saves processed data
-  drafting_viz.qmd      # submission script — three inline visualizations
+  drafting_viz.qmd      # production code — three inline visualizations + ggsave exports
+  inspo1.jpg            # inspiration reference images
+  inspo2.jpg
+  myth1_sketch.png      # hand-drawn planning sketches
+  myth2_sketch.png
+  myth3_sketch.png
+  myth1.pdf             # chart exports used in Affinity assembly
+  myth2.pdf
+  myth3.pdf
 
 data/
   processed/
     crash_clean.csv     # cleaned, filtered, joined crash + party data (tracked)
   raw/                  # gitignored — download instructions below
+
+docs/
+  FPM4.pdf              # FPM #4 assignment instructions
+  240Final.pdf          # EDS 240 final project description
+  draft.png             # first Affinity layout draft
+
+draft2.png              # current working draft of assembled infographic
+draft2.af               # Affinity Designer source file for the infographic
 ```
 
 **Gitignored (not in repo):**
 
 - `data/raw/` — raw SWITRS CSVs (large; download separately)
-- `figures/` — generated plot outputs (reproduced by running the qmd files)
+- `figures/` — generated plot outputs (reproduced by running `drafting_viz.qmd`)
 - `scratch/` — working R scripts and reference drafts used during development
 - `investigate_myth3.R` — exploratory one-off script
 
@@ -51,6 +67,8 @@ The cleaning, filtering (to at-fault drivers), and joining of the two files is d
 ## Reproducing the Visualizations
 
 1. Open `miller-eds240-infographic.Rproj` in RStudio
-2. Run `FPM-Assignments/drafting_viz.qmd` — it loads from `data/processed/crash_clean.csv` and renders all three charts inline
+2. Run `FPM-Assignments/drafting_viz.qmd` — it loads from `data/processed/crash_clean.csv`, renders all three charts inline, and exports PDFs to `FPM-Assignments/`
 
 To re-run cleaning from scratch: download the raw SWITRS CSVs, place in `data/raw/`, then run `exploration.qmd` first.
+
+The final infographic layout (`draft2.af`) is assembled in Affinity Designer using the exported PDFs as placed assets.
